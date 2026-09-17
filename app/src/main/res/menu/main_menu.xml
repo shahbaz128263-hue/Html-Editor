@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res/res-auto">
+
+    <item
+        android:id="@+id/action_new_project"
+        android:title="New Project"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_rename"
+        android:title="Rename File"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_delete"
+        android:title="Delete File"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_share_zip"
+        android:title="Export Project as ZIP"
+        app:showAsAction="never" />
+
+</menu>
