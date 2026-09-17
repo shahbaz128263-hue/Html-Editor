@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Editor</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background: #1e1e1e; overflow: hidden;
+    font-family: 'Courier New', monospace;
+  }
+  #editorContainer {
+    position: relative;
+    height: 100%;
+    width: 100%;
+    display: flex;
+  }
+  #lineNumbers {
+    background: #252526;
+    color: #6e7681;
+    text-align: right;
+    padding: 8px 6px 8px 0;
+    font-size: 14px;
+    line-height: 21px;
+    user-select: none;
+    white-space: pre;
+    overflow: hidden;
+    min-width: 30px;
+  }
+  #codeWrap {
+    position: relative;
+    flex: 1;
+    overflow: auto;
+    height: 100%;
+  }
+  #highlightLayer, #codeArea {
+    margin: 0;
+    padding: 8px 8px 8px 8px;
+    font-size: 14px;
+    line-height: 21px;
+    font-family: 'Courier New', monospace;
+    white-space: pre;
+    word-wrap: normal;
+    min-height: 100%;
+    box-sizing: border-box;
+  }
+  #highlightLayer {
+    position: absolute;
+    top: 0; left: 0;
+    color: #d4d4d4;
+    pointer-events: none;
+    width: 100%;
+  }
+  #codeArea {
+    position: relative;
+    background: transparent;
+    color: transparent;
+    caret-color: #ffffff;
+    border: none;
+    outline: none;
+    resize: none;
+    width: 100%;
+    z-index: 2;
+  }
+  /* Syntax highlight colors */
+  .tag { color: #569cd6; }
+  .attr { color: #9cdcfe; }
+  .string { color: #ce9178; }
+  .comment { color: #6a9955; font-style: italic; }
+  .keyword { color: #c586c0; }
+  .selector { color: #d7ba7d; }
+  .property { color: #9cdcfe; }
+  .number { color: #b5cea8; }
+  .punctuation { color: #808080; }
+</style>
+</head>
+<body>
+<div id="editorContainer">
+  <div id="lineNumbers">1</div>
+  <div id="codeWrap">
+    <pre id="highlightLayer"></pre>
+    <textarea id="codeArea" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
+  </div>
+</div>
+
+<script>
+  const codeArea = document.getElementById('codeArea');
+  const highlightLayer = document.getElementById('highlightLayer');
+  const lineNumbers = document.getElementById('lineNumbers');
+  let currentLang = 'html';
+
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function highlightHtml(code) {
+    let escaped = escapeHtml(code);
+    escaped = escaped.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="comment">$1</span>');
+    escaped = escaped.replace(/(&lt;\/?[a-zA-Z0-9\-]+)/g, '<span class="tag">$1</span>');
+    escaped = escaped.replace(/([a-zA-Z\-]+)(=)(&quot;[^&]*?&quot;|"[^"]*?")/g, '<span class="attr">$1</span>$2<span class="string">$3</span>');
+    escaped = escaped.replace(/(&gt;)/g, '<span class="tag">$1</span>');
+    return escaped;
+  }
+
+  function highlightCss(code) {
+    let escaped = escapeHtml(code);
+    escaped = escaped.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="comment">$1</span>');
+    escaped = escaped.replace(/([.#]?[a-zA-Z0-9_\-]+)(\s*\{)/g, '<span class="selector">$1</span>$2');
+    escaped = escaped.replace(/([a-zA-Z\-]+)(\s*:)/g, '<span class="property">$1</span>$2');
+    escaped = escaped.replace(/(#[0-9a-fA-F]{3,8}\b|\b\d+(\.\d+)?(px|em|rem|%|s|deg)?\b)/g, '<span class="number">$1</span>');
+    escaped = escaped.replace(/(&quot;[^&]*?&quot;|'[^']*?')/g, '<span class="string">$1</span>');
+    return escaped;
+  }
+
+  function highlightJs(code) {
+    let escaped = escapeHtml(code);
+    escaped = escaped.replace(/(\/\/.*$)/gm, '<span class="comment">$1</span>');
+    escaped = escaped.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="comment">$1</span>');
+    escaped = escaped.replace(/(&quot;[^&]*?&quot;|'[^']*?'|`[^`]*?`)/g, '<span class="string">$1</span>');
+    const keywords = ['var','let','const','function','return','if','else','for','while','do','switch','case','break','continue','new','class','extends','import','export','default','this','typeof','instanceof','try','catch','finally','throw','async','await','null','undefined','true','false'];
+    const kwRegex = new RegExp('\\b(' + keywords.join('|') + ')\\b', 'g');
+    escaped = escaped.replace(kwRegex, '<span class="keyword">$1</span>');
+    escaped = escaped.replace(/\b(\d+(\.\d+)?)\b/g, '<span class="number">$1</span>');
+    return escaped;
+  }
+
+  function detectLangFromContent() {
+    return currentLang;
+  }
+
+  function highlight(code) {
+    switch (currentLang) {
+      case 'css': return highlightCss(code);
+      case 'js': return highlightJs(code);
+      default: return highlightHtml(code);
+    }
+  }
+
+  function updateLineNumbers() {
+    const lines = codeArea.value.split('\n').length;
+    let numStr = '';
+    for (let i = 1; i <= lines; i++) numStr += i + '\n';
+    lineNumbers.textContent = numStr;
+  }
+
+  function render() {
+    const code = codeArea.value;
+    highlightLayer.innerHTML = highlight(code) + (code.endsWith('\n') ? ' ' : '');
+    updateLineNumbers();
+  }
+
+  codeArea.addEventListener('input', render);
+  codeArea.addEventListener('scroll', () => {
+    highlightLayer.parentElement.scrollTop = codeArea.scrollTop;
+    highlightLayer.style.transform = `translateY(${-codeArea.scrollTop}px)`;
+    lineNumbers.style.transform = `translateY(${-codeArea.scrollTop}px)`;
+  });
+
+  // Tab key inserts spaces instead of moving focus
+  codeArea.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = codeArea.selectionStart;
+      const end = codeArea.selectionEnd;
+      codeArea.value = codeArea.value.substring(0, start) + '  ' + codeArea.value.substring(end);
+      codeArea.selectionStart = codeArea.selectionEnd = start + 2;
+      render();
+    }
+  });
+
+  // ===== Bridge functions callable from Android via evaluateJavascript =====
+  function setContent(text, lang) {
+    codeArea.value = text;
+    currentLang = lang || 'html';
+    render();
+  }
+
+  function getContent() {
+    return codeArea.value;
+  }
+
+  function insertAtCursor(text) {
+    const start = codeArea.selectionStart;
+    const end = codeArea.selectionEnd;
+    codeArea.value = codeArea.value.substring(0, start) + text + codeArea.value.substring(end);
+    codeArea.selectionStart = codeArea.selectionEnd = start + text.length;
+    codeArea.focus();
+    render();
+  }
+
+  function setLanguage(lang) {
+    currentLang = lang;
+    render();
+  }
+
+  // Notify Android whenever content changes (for unsaved-indicator, optional)
+  codeArea.addEventListener('input', () => {
+    if (window.AndroidBridge && window.AndroidBridge.onContentChanged) {
+      window.AndroidBridge.onContentChanged();
+    }
+  });
+
+  render();
+</script>
+</body>
+</html>
